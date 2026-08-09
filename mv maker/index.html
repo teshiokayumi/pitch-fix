@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>かわいいイコライザーMVメーカー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --pink:#ffb3c8; --pink-dark:#ff8fb0; --pink-pale:#fff0f5;
+  --mint:#a8e6cf; --lavender:#d8bbff; --cream:#fffaf0;
+  --text:#6b5b6e; --text-light:#a08ba5;
+  --card:#ffffff; --bg:#fdf2f7;
+  --radius:18px;
+  --shadow:0 4px 16px rgba(255,143,176,.18);
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{
+  font-family:"M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif;
+  background:var(--bg);
+  background-image:radial-gradient(circle at 10% 20%, #ffeaf3 0%, transparent 40%),
+                   radial-gradient(circle at 90% 80%, #eaf6ff 0%, transparent 40%);
+  color:var(--text);
+  min-height:100vh;
+  padding:16px;
+}
+header{text-align:center; margin-bottom:14px;}
+header h1{font-size:1.5rem; font-weight:800; color:var(--pink-dark); letter-spacing:.05em;}
+header p{font-size:.8rem; color:var(--text-light); margin-top:2px;}
+
+/* ステップ表示 */
+.steps{display:flex; justify-content:center; gap:8px; margin:12px auto 18px; flex-wrap:wrap;}
+.step{
+  background:#fff; border:2px solid #f3d9e5; border-radius:999px;
+  padding:6px 14px; font-size:.82rem; font-weight:700; color:var(--text-light);
+  display:flex; align-items:center; gap:6px; transition:all .3s;
+}
+.step .num{
+  width:20px; height:20px; border-radius:50%; background:#f3d9e5; color:#fff;
+  display:inline-flex; align-items:center; justify-content:center; font-size:.75rem;
+}
+.step.done{border-color:var(--pink); color:var(--pink-dark);}
+.step.done .num{background:var(--pink);}
+
+.layout{display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:16px; max-width:1280px; margin:0 auto;}
+@media (max-width:960px){ .layout{grid-template-columns:1fr;} }
+
+.card{background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px;}
+.card h2{font-size:.95rem; font-weight:800; color:var(--pink-dark); margin-bottom:10px; display:flex; align-items:center; gap:6px;}
+
+/* プレビュー */
+#previewWrap{position:relative; border-radius:12px; overflow:hidden; background:#2a2233;}
+#canvas{display:block; width:100%; height:auto;}
+#previewHint{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  color:#fff; font-size:.9rem; font-weight:700; text-shadow:0 2px 8px rgba(0,0,0,.4);
+  background:rgba(90,70,100,.25); pointer-events:none; text-align:center; padding:10px;
+}
+.transport{display:flex; align-items:center; gap:10px; margin-top:10px;}
+#playBtn{
+  width:46px; height:46px; border-radius:50%; border:none; cursor:pointer;
+  background:linear-gradient(135deg,var(--pink),var(--pink-dark)); color:#fff; font-size:1.1rem;
+  box-shadow:0 3px 10px rgba(255,143,176,.45); transition:transform .15s;
+  flex-shrink:0;
+}
+#playBtn:hover{transform:scale(1.08);}
+#playBtn:disabled{opacity:.4; cursor:not-allowed; transform:none;}
+#seekBar{flex:1; accent-color:var(--pink-dark); height:6px; cursor:pointer;}
+#timeLabel{font-size:.78rem; color:var(--text-light); font-variant-numeric:tabular-nums; white-space:nowrap;}
+
+/* アップロード */
+.dropzone{
+  border:2.5px dashed #f0c4d6; border-radius:14px; padding:18px 10px; text-align:center;
+  color:var(--text-light); font-size:.82rem; cursor:pointer; transition:all .2s;
+  background:var(--pink-pale);
+}
+.dropzone:hover, .dropzone.dragover{border-color:var(--pink-dark); background:#ffe4ee; color:var(--pink-dark);}
+.dropzone .big{font-size:1.5rem; display:block; margin-bottom:4px;}
+input[type=file]{display:none;}
+
+#thumbList{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
+.thumb{
+  position:relative; width:88px; border-radius:10px; overflow:hidden; cursor:grab;
+  border:2px solid #f3d9e5; background:#fff; transition:border-color .2s;
+}
+.thumb.dragging{opacity:.4;}
+.thumb img{width:100%; height:49px; object-fit:cover; display:block; pointer-events:none;}
+.thumb .idx{
+  position:absolute; top:2px; left:2px; background:rgba(255,143,176,.9); color:#fff;
+  font-size:.65rem; font-weight:700; border-radius:6px; padding:1px 5px;
+}
+.thumb .del{
+  position:absolute; top:2px; right:2px; width:18px; height:18px; border:none; border-radius:50%;
+  background:rgba(255,255,255,.9); color:var(--pink-dark); font-size:.7rem; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; font-weight:700;
+}
+.thumb .del:hover{background:var(--pink-dark); color:#fff;}
+
+#audioInfo{margin-top:8px; font-size:.8rem; color:var(--text); background:var(--pink-pale); border-radius:10px; padding:8px 12px; display:none;}
+#audioInfo b{color:var(--pink-dark);}
+
+/* 設定 */
+.field{margin-bottom:12px;}
+.field label{display:block; font-size:.78rem; font-weight:700; color:var(--text); margin-bottom:4px;}
+.field select, .field input[type=number], .field input[type=text]{
+  width:100%; padding:7px 10px; border:2px solid #f3d9e5; border-radius:10px;
+  font-family:inherit; font-size:.85rem; color:var(--text); background:#fff; outline:none;
+}
+.field select:focus, .field input:focus{border-color:var(--pink);}
+.field input[type=range]{width:100%; accent-color:var(--pink-dark);}
+.row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.checkline{display:flex; align-items:center; gap:8px; font-size:.8rem; font-weight:700; color:var(--text); cursor:pointer; margin-bottom:10px;}
+.checkline input{accent-color:var(--pink-dark); width:16px; height:16px; cursor:pointer;}
+.rangeval{font-size:.72rem; color:var(--text-light); float:right;}
+.subnote{font-size:.7rem; color:var(--text-light); margin-top:3px;}
+
+/* プリセット選択 */
+.presetGrid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+.presetBtn{
+  border:2px solid #f3d9e5; border-radius:12px; background:#fff; padding:8px 6px;
+  font-family:inherit; font-size:.78rem; font-weight:700; color:var(--text); cursor:pointer;
+  transition:all .15s;
+}
+.presetBtn:hover{border-color:var(--pink);}
+.presetBtn.active{border-color:var(--pink-dark); background:var(--pink-pale); color:var(--pink-dark);}
+
+/* 書き出し */
+#exportBtn{
+  width:100%; padding:13px; border:none; border-radius:14px; cursor:pointer;
+  background:linear-gradient(135deg,#ffb3c8,#c9a3f5); color:#fff; font-family:inherit;
+  font-size:1rem; font-weight:800; letter-spacing:.05em;
+  box-shadow:0 4px 14px rgba(201,163,245,.4); transition:transform .15s;
+}
+#exportBtn:hover:not(:disabled){transform:translateY(-2px);}
+#exportBtn:disabled{opacity:.45; cursor:not-allowed;}
+#cancelBtn{
+  width:100%; padding:8px; margin-top:8px; border:2px solid #f3d9e5; border-radius:12px;
+  background:#fff; color:var(--text-light); font-family:inherit; font-weight:700; cursor:pointer; display:none;
+}
+#progressWrap{display:none; margin-top:10px;}
+#progressOuter{background:#f3e3ec; border-radius:999px; height:14px; overflow:hidden;}
+#progressInner{height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg,var(--pink),#c9a3f5); transition:width .3s linear;}
+#progressText{font-size:.75rem; color:var(--text-light); margin-top:4px; text-align:center;}
+#exportWarn{display:none; margin-top:8px; font-size:.75rem; color:#c77; background:#fff3f3; border-radius:10px; padding:8px 10px; font-weight:700;}
+#downloadArea{display:none; margin-top:10px; text-align:center;}
+#downloadLink{
+  display:inline-block; padding:11px 22px; border-radius:12px; text-decoration:none;
+  background:linear-gradient(135deg,#a8e6cf,#7fd8be); color:#fff; font-weight:800; font-size:.9rem;
+  box-shadow:0 3px 10px rgba(127,216,190,.4);
+}
+#formatInfo{font-size:.72rem; color:var(--text-light); margin-top:6px; text-align:center;}
+.pcNote{font-size:.7rem; color:var(--text-light); margin-top:8px; text-align:center;}
+
+.settingsCol > .card{margin-bottom:14px;}
+.exporting .lockable{pointer-events:none; opacity:.55;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎀 かわいいイコライザーMVメーカー 🎀</h1>
+  <p>画像とMP3をアップロードして、音に合わせて踊るかわいいMVを作ろう!</p>
+</header>
+
+<div class="steps">
+  <div class="step" id="step1"><span class="num">1</span>画像</div>
+  <div class="step" id="step2"><span class="num">2</span>曲</div>
+  <div class="step" id="step3"><span class="num">3</span>スタイル</div>
+  <div class="step" id="step4"><span class="num">4</span>書き出し</div>
+</div>
+
+<div class="layout">
+  <!-- 左カラム: プレビュー & 書き出し -->
+  <div>
+    <div class="card">
+      <h2>🎬 プレビュー</h2>
+      <div id="previewWrap">
+        <canvas id="canvas" width="1920" height="1080"></canvas>
+        <div id="previewHint">画像と曲をアップロードすると<br>ここにプレビューが表示されます</div>
+      </div>
+      <div class="transport lockable">
+        <button id="playBtn" disabled>▶</button>
+        <input type="range" id="seekBar" min="0" max="1000" value="0" disabled>
+        <span id="timeLabel">0:00 / 0:00</span>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <h2>💾 ④ 動画書き出し(フル尺)</h2>
+      <div class="row2 lockable" style="margin-bottom:10px;">
+        <div class="field" style="margin:0;">
+          <label>出力解像度</label>
+          <select id="exportRes">
+            <option value="1920x1080" selected>1920×1080 (フルHD)</option>
+            <option value="1280x720">1280×720 (HD)</option>
+          </select>
+        </div>
+        <div class="field" style="margin:0;">
+          <label>書き出し形式</label>
+          <div id="formatBadge" style="padding:7px 10px; border:2px solid #f3d9e5; border-radius:10px; font-size:.85rem; background:var(--pink-pale); color:var(--pink-dark); font-weight:700;">判定中...</div>
+        </div>
+      </div>
+      <button id="exportBtn" disabled>🎥 書き出しスタート</button>
+      <button id="cancelBtn">✖ 書き出しを中止する</button>
+      <div id="exportWarn">⚠ 書き出し中はこのタブを閉じたり最小化したりしないでください。曲の長さと同じ時間がかかります。</div>
+      <div id="progressWrap">
+        <div id="progressOuter"><div id="progressInner"></div></div>
+        <div id="progressText">0:00 / 0:00</div>
+      </div>
+      <div id="downloadArea">
+        <a id="downloadLink" href="#" download>⬇ 動画をダウンロード</a>
+        <div id="formatInfo"></div>
+      </div>
+      <div class="pcNote">※ 書き出しはPCのChromeブラウザを推奨します(スマホではプレビューのみお試しください)</div>
+    </div>
+  </div>
+
+  <!-- 右カラム: 素材 & 設定 -->
+  <div class="settingsCol">
+    <div class="card lockable">
+      <h2>🖼 ① 画像(スライドショー)</h2>
+      <div class="dropzone" id="imgDrop">
+        <span class="big">🖼️</span>
+        クリック または ドラッグ&ドロップで<br>画像を追加(複数OK / PNG・JPG・WebP)
+      </div>
+      <input type="file" id="imgInput" accept="image/png,image/jpeg,image/webp" multiple>
+      <div id="thumbList"></div>
+      <div class="field" style="margin-top:10px;">
+        <label>16:9でない画像のフィット方法</label>
+        <select id="fitMode">
+          <option value="pad">余白(パステル背景)</option>
+          <option value="cover" selected>カバー(はみ出しトリミング)</option>
+        </select>
+      </div>
+      <div class="subnote">サムネイルはドラッグで並べ替え、✕で削除できます</div>
+    </div>
+
+    <div class="card lockable">
+      <h2>🎵 ② 曲(MP3)</h2>
+      <div class="dropzone" id="audioDrop">
+        <span class="big">🎵</span>
+        クリック または ドラッグ&ドロップで<br>MP3をアップロード
+      </div>
+      <input type="file" id="audioInput" accept="audio/*,.mp3">
+      <div id="audioInfo"></div>
+    </div>
+
+    <div class="card lockable">
+      <h2>✨ ③ イコライザースタイル</h2>
+      <div class="presetGrid" id="presetGrid"></div>
+
+      <div class="field" id="pawColorField" style="display:none; margin-top:12px;">
+        <label>🐾 肉球カラー</label>
+        <select id="pawColor">
+          <option value="pink" selected>ピンク肉球</option>
+          <option value="white">白猫</option>
+          <option value="black">黒猫</option>
+          <option value="mike">三毛</option>
+        </select>
+      </div>
+      <label class="checkline" id="petalField" style="display:none; margin-top:12px;">
+        <input type="checkbox" id="petalToggle" checked> 花びらがふわっと舞い散る
+      </label>
+
+      <div class="field" style="margin-top:12px;">
+        <label>カラーパレット</label>
+        <select id="palette">
+          <option value="pink" selected>パステルピンク系</option>
+          <option value="rainbow">パステルレインボー</option>
+          <option value="mint">ミント系</option>
+          <option value="lavender">ラベンダー系</option>
+          <option value="custom">カスタム</option>
+        </select>
+      </div>
+      <div class="field" id="customColorField" style="display:none;">
+        <label>カスタムカラー</label>
+        <input type="color" id="customColor" value="#ffb3c8" style="width:100%; height:36px; border:2px solid #f3d9e5; border-radius:10px; background:#fff; cursor:pointer;">
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>表示位置</label>
+          <select id="eqPosition">
+            <option value="bottom" selected>下部</option>
+            <option value="center">中央</option>
+            <option value="top">上部</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>バーの本数 <span class="rangeval" id="barCountVal">32</span></label>
+          <input type="range" id="barCount" min="16" max="48" step="2" value="32">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>高さ <span class="rangeval" id="eqHeightVal">30%</span></label>
+          <input type="range" id="eqHeight" min="15" max="50" value="30">
+        </div>
+        <div class="field">
+          <label>左右余白 <span class="rangeval" id="eqMarginVal">5%</span></label>
+          <input type="range" id="eqMargin" min="0" max="20" value="5">
+        </div>
+      </div>
+      <label class="checkline"><input type="checkbox" id="mirror"> 左右対称ミラー表示</label>
+      <label class="checkline"><input type="checkbox" id="overlay" checked> うっすらオーバーレイ(背景を少し暗く)</label>
+    </div>
+
+    <div class="card lockable">
+      <h2>🎞 スライドショー設定</h2>
+      <div class="field">
+        <label>切り替えタイミング</label>
+        <select id="slideMode">
+          <option value="auto" selected>自動(曲の長さで等分)</option>
+          <option value="manual">1枚あたりの秒数を指定</option>
+        </select>
+      </div>
+      <div class="row2" id="manualFields" style="display:none;">
+        <div class="field">
+          <label>1枚あたり(秒)</label>
+          <input type="number" id="slideSec" min="1" max="120" step="0.5" value="8">
+        </div>
+        <div class="field">
+          <label>最後まで行ったら</label>
+          <select id="slideEnd">
+            <option value="loop" selected>最初に戻ってループ</option>
+            <option value="hold">最終画像で固定</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>切り替えエフェクト</label>
+        <select id="transition">
+          <option value="fade" selected>フェード</option>
+          <option value="slide">スライド</option>
+          <option value="none">なし</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* =========================================================
+   かわいいイコライザーMVメーカー
+   - 完全クライアントサイド / Vanilla JS
+   - Canvas 2D + Web Audio API + MediaRecorder
+========================================================= */
+
+/* ---------- ピクセルパターン定義 ----------
+   数値の意味: 0=透明, 1=メイン色, 2=濃い縁取り色, 3=明るいハイライト色
+   新しいモチーフは PIXEL_PATTERNS にグリッドを足して
+   PRESETS に登録するだけで追加できる。 */
+const PIXEL_PATTERNS = {
+  heart: { size:8, grid:[
+    [0,2,2,0,0,2,2,0],
+    [2,1,1,2,2,1,1,2],
+    [2,1,3,1,1,1,1,2],
+    [2,1,1,1,1,1,1,2],
+    [0,2,1,1,1,1,2,0],
+    [0,0,2,1,1,2,0,0],
+    [0,0,0,2,2,0,0,0],
+    [0,0,0,0,0,0,0,0],
+  ]},
+  sakura: { size:8, grid:[
+    [0,1,1,0,0,1,1,0],
+    [1,1,1,1,1,1,1,1],
+    [1,1,1,3,3,1,1,1],
+    [0,1,3,3,3,3,1,0],
+    [0,1,3,3,3,3,1,0],
+    [1,1,1,3,3,1,1,1],
+    [1,1,1,1,1,1,1,1],
+    [0,1,1,0,0,1,1,0],
+  ]},
+  paw: { size:8, grid:[
+    [0,1,1,0,0,1,1,0],
+    [0,1,1,0,0,1,1,0],
+    [1,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,0,1],
+    [0,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,0],
+    [0,0,1,1,1,1,0,0],
+    [0,0,0,0,0,0,0,0],
+  ]},
+  circle: { size:8, grid:[
+    [0,0,1,1,1,1,0,0],
+    [0,1,1,1,1,1,1,0],
+    [1,1,3,1,1,1,1,1],
+    [1,3,1,1,1,1,1,1],
+    [1,1,1,1,1,1,1,1],
+    [1,1,1,1,1,1,1,1],
+    [0,1,1,1,1,1,1,0],
+    [0,0,1,1,1,1,0,0],
+  ]},
+  star: { size:8, grid:[
+    [0,0,0,1,1,0,0,0],
+    [0,0,0,1,1,0,0,0],
+    [1,1,1,1,1,1,1,1],
+    [0,1,1,3,3,1,1,0],
+    [0,0,1,1,1,1,0,0],
+    [0,1,1,1,1,1,1,0],
+    [0,1,1,0,0,1,1,0],
+    [1,1,0,0,0,0,1,1],
+  ]},
+};
+
+/* ---------- プリセット定義 (1スタイル=1描画関数) ---------- */
+const PRESETS = [
+  { id:"heart",   name:"♡ ドット絵バー",     draw: drawStackHeart },
+  { id:"sakura",  name:"🌸 桜の花びらバー",   draw: drawStackSakura },
+  { id:"paw",     name:"🐾 肉球バー",         draw: drawStackPaw },
+  { id:"circle",  name:"⚪ 丸ドットバー",     draw: drawStackCircle },
+  { id:"star",    name:"★ スターバー",        draw: drawStackStar },
+  { id:"classic", name:"📊 クラシックバー",   draw: drawClassicBars },
+];
+
+/* ---------- カラーパレット ---------- */
+const PALETTES = {
+  pink:     ["#ff9fbb","#ffb3c8","#ffc9d9","#ffdfe9"],
+  rainbow:  ["#ffb3ba","#ffd8b3","#fdfdb3","#baffc9","#bae1ff","#d9baff"],
+  mint:     ["#7fd8be","#a8e6cf","#c6f7e2","#dcedc1"],
+  lavender: ["#b8a1e3","#cdb4f0","#e0c3fc","#f0e1ff"],
+};
+const PAW_COLORS = {
+  pink:  ["#ff9fbb","#ffb9cf","#ff8fb0"],
+  white: ["#f7f4f2","#ffffff","#efe8e4"],
+  black: ["#4a4a54","#5c5c68","#3a3a44"],
+  mike:  ["#f7f4f2","#f2a65e","#5c5c68"],
+};
+const PAD_BG = "#fff4f8"; // 余白フィット時のパステル背景
+
+/* ---------- 状態 ---------- */
+const state = {
+  images: [],        // { bitmap:Canvas, name, url }
+  audioBuffer: null,
+  audioName: "",
+  preset: "heart",
+  exporting: false,
+};
+
+/* ---------- DOM ---------- */
+const $ = id => document.getElementById(id);
+const canvas = $("canvas"), ctx = canvas.getContext("2d");
+const ui = {
+  playBtn:$("playBtn"), seekBar:$("seekBar"), timeLabel:$("timeLabel"),
+  previewHint:$("previewHint"),
+  imgDrop:$("imgDrop"), imgInput:$("imgInput"), thumbList:$("thumbList"), fitMode:$("fitMode"),
+  audioDrop:$("audioDrop"), audioInput:$("audioInput"), audioInfo:$("audioInfo"),
+  presetGrid:$("presetGrid"), pawColorField:$("pawColorField"), pawColor:$("pawColor"),
+  petalField:$("petalField"), petalToggle:$("petalToggle"),
+  palette:$("palette"), customColorField:$("customColorField"), customColor:$("customColor"),
+  eqPosition:$("eqPosition"), barCount:$("barCount"), eqHeight:$("eqHeight"), eqMargin:$("eqMargin"),
+  mirror:$("mirror"), overlay:$("overlay"),
+  slideMode:$("slideMode"), manualFields:$("manualFields"), slideSec:$("slideSec"), slideEnd:$("slideEnd"),
+  transition:$("transition"),
+  exportRes:$("exportRes"), formatBadge:$("formatBadge"), exportBtn:$("exportBtn"), cancelBtn:$("cancelBtn"),
+  exportWarn:$("exportWarn"), progressWrap:$("progressWrap"), progressInner:$("progressInner"),
+  progressText:$("progressText"), downloadArea:$("downloadArea"), downloadLink:$("downloadLink"),
+  formatInfo:$("formatInfo"),
+};
+
+/* ---------- カラーユーティリティ ---------- */
+function hexToRgb(hex){
+  const n = parseInt(hex.slice(1), 16);
+  return [(n>>16)&255, (n>>8)&255, n&255];
+}
+function mix(hex, target, f){ // target: 0=黒方向, 255=白方向
+  const [r,g,b] = hexToRgb(hex);
+  const m = c => Math.round(c + (target - c) * f);
+  return `rgb(${m(r)},${m(g)},${m(b)})`;
+}
+const shade = (hex,f)=>mix(hex,0,f);
+const tint  = (hex,f)=>mix(hex,255,f);
+
+function currentPalette(){
+  if (ui.palette.value === "custom"){
+    const c = ui.customColor.value;
+    return [c, tint(c,.25), tint(c,.5), shade(c,.15)];
+  }
+  return PALETTES[ui.palette.value];
+}
+
+/* ---------- パターン描画 (キャッシュ付き) ---------- */
+const patternCache = new Map();
+function getPatternSprite(patternName, mainColor, cellPx){
+  const key = `${patternName}|${mainColor}|${cellPx}`;
+  let sprite = patternCache.get(key);
+  if (sprite) return sprite;
+  const pat = PIXEL_PATTERNS[patternName];
+  const px = Math.max(1, Math.floor(cellPx / pat.size));
+  const c = document.createElement("canvas");
+  c.width = c.height = px * pat.size;
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  const colors = { 1: mainColor, 2: shade(mainColor,.45), 3: tint(mainColor,.55) };
+  for (let y=0; y<pat.size; y++)
+    for (let x=0; x<pat.size; x++){
+      const v = pat.grid[y][x];
+      if (!v) continue;
+      g.fillStyle = colors[v];
+      g.fillRect(x*px, y*px, px, px);
+    }
+  patternCache.set(key, sprite = c);
+  if (patternCache.size > 400) patternCache.clear(); // 念のため
+  return sprite;
+}
+
+/* ---------- 積み上げ描画エンジン (共通) ----------
+   values: 0..1 のバー値配列。モチーフを下から積み上げる。 */
+function drawStackedMotif(ctx, values, area, patternName, colorForLevel){
+  const n = values.length;
+  const slot = area.w / n;
+  const cell = Math.min(slot * 0.82, area.h / 3);
+  const maxUnits = Math.max(2, Math.floor(area.h / cell));
+  ctx.imageSmoothingEnabled = false;
+  const tops = [];
+  for (let i=0; i<n; i++){
+    const units = Math.max(1, Math.round(values[i] * maxUnits));
+    const x = area.x + slot*i + (slot-cell)/2;
+    for (let k=0; k<units; k++){
+      const y = area.y + area.h - (k+1)*cell;
+      const sprite = getPatternSprite(patternName, colorForLevel(k, i), cell);
+      ctx.drawImage(sprite, x, y, cell, cell);
+    }
+    tops.push({ x: x + cell/2, y: area.y + area.h - units*cell, v: values[i] });
+  }
+  ctx.imageSmoothingEnabled = true;
+  return tops;
+}
+
+/* ---------- 各プリセットの描画関数 (1スタイル=1関数) ---------- */
+function drawStackHeart(ctx, values, area){
+  const pal = currentPalette();
+  drawStackedMotif(ctx, values, area, "heart", k => pal[k % pal.length]);
+}
+function drawStackSakura(ctx, values, area){
+  const pal = ui.palette.value === "pink"
+    ? ["#ffb0c9","#ffc3d6","#ffd6e3","#ffe9f1"]  // 桜はピンク〜白のデフォルト
+    : currentPalette();
+  const tops = drawStackedMotif(ctx, values, area, "sakura", k => pal[k % pal.length]);
+  if (ui.petalToggle.checked) updatePetals(ctx, tops, area, pal);
+}
+function drawStackPaw(ctx, values, area){
+  const cols = PAW_COLORS[ui.pawColor.value];
+  drawStackedMotif(ctx, values, area, "paw", k => cols[k % cols.length]);
+}
+function drawStackCircle(ctx, values, area){
+  const pal = currentPalette();
+  drawStackedMotif(ctx, values, area, "circle", (k,i) => pal[i % pal.length]);
+}
+function drawStackStar(ctx, values, area){
+  const pal = currentPalette();
+  drawStackedMotif(ctx, values, area, "star", k => pal[k % pal.length]);
+}
+function drawClassicBars(ctx, values, area){
+  const pal = currentPalette();
+  const n = values.length;
+  const slot = area.w / n;
+  const bw = slot * 0.68;
+  const grad = ctx.createLinearGradient(0, area.y + area.h, 0, area.y);
+  pal.forEach((c,i)=>grad.addColorStop(i/(pal.length-1||1), c));
+  ctx.fillStyle = grad;
+  for (let i=0; i<n; i++){
+    const h = Math.max(area.h * values[i], bw*0.5);
+    const x = area.x + slot*i + (slot-bw)/2;
+    const y = area.y + area.h - h;
+    const r = bw/2;
+    ctx.beginPath();
+    ctx.moveTo(x, area.y + area.h);
+    ctx.lineTo(x, y+r);
+    ctx.arc(x+r, y+r, r, Math.PI, 0);
+    ctx.lineTo(x+bw, area.y + area.h);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+/* ---------- 桜の花びらパーティクル ---------- */
+let petals = [];
+let lastPetalSpawn = 0;
+function updatePetals(ctx, tops, area, pal){
+  const now = performance.now();
+  if (player.playing && now - lastPetalSpawn > 120 && petals.length < 40){
+    const hot = tops.filter(t => t.v > 0.55);
+    if (hot.length){
+      const t = hot[Math.floor(Math.random()*hot.length)];
+      petals.push({
+        x:t.x, y:t.y, vx:(Math.random()-0.5)*40, vy:-(30+Math.random()*50),
+        rot:Math.random()*Math.PI*2, vr:(Math.random()-0.5)*3,
+        life:1, size:14+Math.random()*10,
+        color:pal[Math.floor(Math.random()*pal.length)],
+      });
+      lastPetalSpawn = now;
+    }
+  }
+  const dt = 1/30;
+  petals = petals.filter(p => p.life > 0);
+  ctx.imageSmoothingEnabled = false;
+  for (const p of petals){
+    p.vy += 60*dt; p.x += p.vx*dt; p.y += p.vy*dt;
+    p.rot += p.vr*dt; p.life -= dt*0.55;
+    const sprite = getPatternSprite("sakura", p.color, p.size);
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot);
+    ctx.drawImage(sprite, -p.size/2, -p.size/2, p.size, p.size);
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+  ctx.imageSmoothingEnabled = true;
+}
+
+/* ---------- オーディオプレイヤー ---------- */
+const player = {
+  ctx:null, analyser:null, masterGain:null, source:null,
+  playing:false, pausedAt:0, startCtxTime:0, startOffset:0,
+  ensure(){
+    if (this.ctx) return;
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this.analyser = this.ctx.createAnalyser();
+    this.analyser.fftSize = 256;
+    this.analyser.smoothingTimeConstant = 0.8;
+    this.masterGain = this.ctx.createGain();
+    this.analyser.connect(this.masterGain);
+    this.masterGain.connect(this.ctx.destination);
+  },
+  get duration(){ return state.audioBuffer ? state.audioBuffer.duration : 0; },
+  get time(){
+    if (!state.audioBuffer) return 0;
+    return this.playing
+      ? Math.min(this.ctx.currentTime - this.startCtxTime + this.startOffset, this.duration)
+      : this.pausedAt;
+  },
+  async play(offset){
+    this.ensure();
+    if (this.ctx.state === "suspended") await this.ctx.resume();
+    this.stopSource();
+    const src = this.ctx.createBufferSource();
+    src.buffer = state.audioBuffer;
+    src.connect(this.analyser);
+    src.onended = () => {
+      if (src._manualStop) return; // 手動停止(シーク/一時停止)では発火させない
+      this.playing = false;
+      this.pausedAt = 0;
+      updatePlayBtn();
+      if (state.exporting) finishExport();
+    };
+    src.start(0, offset);
+    this.source = src;
+    this.startCtxTime = this.ctx.currentTime;
+    this.startOffset = offset;
+    this.playing = true;
+    updatePlayBtn();
+  },
+  pause(){
+    this.pausedAt = this.time;
+    this.stopSource();
+    this.playing = false;
+    updatePlayBtn();
+  },
+  seek(t){
+    t = Math.max(0, Math.min(t, this.duration));
+    if (this.playing) this.play(t);
+    else { this.pausedAt = t; }
+  },
+  stopSource(){
+    if (this.source){
+      this.source._manualStop = true;
+      try{ this.source.stop(); }catch(e){}
+      this.source.disconnect();
+      this.source = null;
+    }
+  },
+};
+function updatePlayBtn(){ ui.playBtn.textContent = player.playing ? "❚❚" : "▶"; }
+
+/* ---------- 周波数データ → バー値 (対数スケール) ---------- */
+const freqData = new Uint8Array(128);
+function getBarValues(){
+  const nBars = parseInt(ui.barCount.value);
+  const mirrored = ui.mirror.checked;
+  const n = mirrored ? Math.ceil(nBars/2) : nBars;
+  const values = new Array(n).fill(0);
+  if (player.analyser && player.playing){
+    player.analyser.getByteFrequencyData(freqData);
+    const maxBin = 100; // 高域はほぼ無音なのでカット
+    for (let i=0; i<n; i++){
+      let lo = Math.floor(Math.pow(maxBin, i/n));
+      let hi = Math.max(lo+1, Math.floor(Math.pow(maxBin, (i+1)/n)));
+      let sum = 0;
+      for (let b=lo; b<hi; b++) sum += freqData[b];
+      const v = sum / (hi-lo) / 255;
+      values[i] = Math.pow(v, 1.25); // 低域偏重をならす
+    }
+  }
+  if (!mirrored) return values;
+  const left = values.slice(0, Math.floor(nBars/2)).reverse();
+  return left.concat(values.slice(0, nBars - left.length));
+}
+
+/* ---------- スライドショー ---------- */
+function getSlideState(t){
+  const n = state.images.length;
+  if (!n) return null;
+  const dur = player.duration || 1;
+  const per = ui.slideMode.value === "manual"
+    ? Math.max(0.5, parseFloat(ui.slideSec.value) || 8)
+    : dur / n;
+  const raw = Math.floor(t / per);
+  const mapIdx = r => {
+    if (r < 0) return 0;
+    if (ui.slideMode.value === "manual" && ui.slideEnd.value === "hold")
+      return Math.min(r, n-1);
+    return r % n;
+  };
+  const transDur = Math.min(0.7, per * 0.4);
+  const tIn = t - raw * per;
+  let mixv = 0;
+  if (ui.transition.value !== "none" && tIn > per - transDur && raw < Math.floor(dur/per))
+    mixv = (tIn - (per - transDur)) / transDur;
+  return { a: mapIdx(raw), b: mapIdx(raw+1), mix: mixv };
+}
+function drawImageFit(g, img, W, H){
+  const iw = img.width, ih = img.height;
+  const scaleCover = Math.max(W/iw, H/ih);
+  const scalePad   = Math.min(W/iw, H/ih);
+  if (ui.fitMode.value === "cover"){
+    const w = iw*scaleCover, h = ih*scaleCover;
+    g.drawImage(img, (W-w)/2, (H-h)/2, w, h);
+  } else {
+    g.fillStyle = PAD_BG;
+    g.fillRect(0,0,W,H);
+    const w = iw*scalePad, h = ih*scalePad;
+    g.drawImage(img, (W-w)/2, (H-h)/2, w, h);
+  }
+}
+function drawSlideshow(t){
+  const W = canvas.width, H = canvas.height;
+  const s = getSlideState(t);
+  if (!s){ ctx.fillStyle = "#3a2f45"; ctx.fillRect(0,0,W,H); return; }
+  const imgA = state.images[s.a].bitmap;
+  drawImageFit(ctx, imgA, W, H);
+  if (s.mix > 0 && s.b !== s.a){
+    const imgB = state.images[s.b].bitmap;
+    ctx.save();
+    if (ui.transition.value === "fade"){
+      ctx.globalAlpha = s.mix;
+      drawImageFit(ctx, imgB, W, H);
+    } else if (ui.transition.value === "slide"){
+      const ease = 1 - Math.pow(1 - s.mix, 3);
+      ctx.translate(W * (1 - ease), 0);
+      drawImageFit(ctx, imgB, W, H);
+    }
+    ctx.restore();
+  }
+}
+
+/* ---------- メイン描画ループ ---------- */
+function render(){
+  requestAnimationFrame(render);
+  const W = canvas.width, H = canvas.height;
+  const t = player.time;
+  drawSlideshow(t);
+
+  if (ui.overlay.checked && state.images.length){
+    ctx.fillStyle = "rgba(40,30,50,0.22)";
+    ctx.fillRect(0,0,W,H);
+  }
+
+  // イコライザー描画エリア
+  const marginX = W * (parseInt(ui.eqMargin.value)/100);
+  const eqH = H * (parseInt(ui.eqHeight.value)/100);
+  let y;
+  switch (ui.eqPosition.value){
+    case "top":    y = H * 0.06; break;
+    case "center": y = (H - eqH)/2; break;
+    default:       y = H - eqH - H*0.05;
+  }
+  const area = { x:marginX, y, w:W - marginX*2, h:eqH };
+  const preset = PRESETS.find(p => p.id === state.preset);
+  preset.draw(ctx, getBarValues(), area);
+
+  // トランスポートUI更新
+  if (state.audioBuffer && !seekDragging){
+    ui.seekBar.value = Math.round(t / player.duration * 1000);
+    ui.timeLabel.textContent = `${fmtTime(t)} / ${fmtTime(player.duration)}`;
+  }
+  if (state.exporting){
+    const pct = Math.min(100, t / player.duration * 100);
+    ui.progressInner.style.width = pct + "%";
+    ui.progressText.textContent = `${fmtTime(t)} / ${fmtTime(player.duration)} 書き出し中... (${Math.floor(pct)}%)`;
+  }
+}
+function fmtTime(s){
+  s = Math.max(0, Math.floor(s));
+  return `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+}
+
+/* ---------- 画像読み込み ---------- */
+async function addImageFiles(files){
+  for (const file of files){
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) continue;
+    const url = URL.createObjectURL(file);
+    const img = await new Promise((res, rej) => {
+      const im = new Image();
+      im.onload = () => res(im);
+      im.onerror = rej;
+      im.src = url;
+    }).catch(()=>null);
+    if (!img) continue;
+    // 大きい画像は出力解像度程度に縮小してメモリ節約
+    const maxW = 1920, maxH = 1080;
+    const sc = Math.min(1, maxW/img.width, maxH/img.height);
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.width*sc);
+    c.height = Math.round(img.height*sc);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(url);
+    state.images.push({ bitmap:c, name:file.name, thumbUrl:c.toDataURL("image/jpeg", .6) });
+  }
+  renderThumbs();
+  refreshAppState();
+}
+function renderThumbs(){
+  ui.thumbList.innerHTML = "";
+  state.images.forEach((im, i) => {
+    const div = document.createElement("div");
+    div.className = "thumb";
+    div.draggable = true;
+    div.dataset.idx = i;
+    div.innerHTML = `<img src="${im.thumbUrl}" alt=""><span class="idx">${i+1}</span><button class="del" title="削除">✕</button>`;
+    div.querySelector(".del").onclick = () => { state.images.splice(i,1); renderThumbs(); refreshAppState(); };
+    div.addEventListener("dragstart", e => { dragIdx = i; div.classList.add("dragging"); e.dataTransfer.effectAllowed="move"; });
+    div.addEventListener("dragend", () => div.classList.remove("dragging"));
+    div.addEventListener("dragover", e => e.preventDefault());
+    div.addEventListener("drop", e => {
+      e.preventDefault();
+      if (dragIdx === null || dragIdx === i) return;
+      const [moved] = state.images.splice(dragIdx, 1);
+      state.images.splice(i, 0, moved);
+      dragIdx = null;
+      renderThumbs();
+    });
+    ui.thumbList.appendChild(div);
+  });
+}
+let dragIdx = null;
+
+/* ---------- 音声読み込み ---------- */
+async function loadAudioFile(file){
+  player.ensure();
+  const buf = await file.arrayBuffer();
+  try{
+    state.audioBuffer = await player.ctx.decodeAudioData(buf);
+  }catch(e){
+    alert("この音声ファイルを読み込めませんでした。MP3ファイルをお試しください。");
+    return;
+  }
+  state.audioName = file.name;
+  player.pausedAt = 0;
+  player.stopSource();
+  player.playing = false;
+  updatePlayBtn();
+  ui.audioInfo.style.display = "block";
+  ui.audioInfo.innerHTML = `🎵 <b>${escapeHtml(file.name)}</b><br>長さ: ${fmtTime(state.audioBuffer.duration)}`;
+  refreshAppState();
+}
+function escapeHtml(s){ return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+/* ---------- アプリ状態の更新 ---------- */
+function refreshAppState(){
+  const hasImg = state.images.length > 0;
+  const hasAudio = !!state.audioBuffer;
+  $("step1").classList.toggle("done", hasImg);
+  $("step2").classList.toggle("done", hasAudio);
+  $("step3").classList.toggle("done", hasImg && hasAudio);
+  const ready = hasImg && hasAudio;
+  ui.playBtn.disabled = !ready;
+  ui.seekBar.disabled = !ready;
+  ui.exportBtn.disabled = !ready || state.exporting;
+  ui.previewHint.style.display = ready ? "none" : "flex";
+}
+
+/* ---------- 書き出し ---------- */
+const MIME_CANDIDATES = [
+  { mime:"video/mp4;codecs=avc1.42E01E,mp4a.40.2", ext:"mp4",  label:"MP4 (H.264)" },
+  { mime:"video/mp4",                              ext:"mp4",  label:"MP4" },
+  { mime:"video/webm;codecs=vp9,opus",             ext:"webm", label:"WebM (VP9)" },
+  { mime:"video/webm",                             ext:"webm", label:"WebM" },
+];
+function pickMime(){
+  if (typeof MediaRecorder === "undefined") return null;
+  return MIME_CANDIDATES.find(c => MediaRecorder.isTypeSupported(c.mime)) || null;
+}
+let recorder = null, recordedChunks = [], mediaDest = null, exportFormat = null;
+
+async function startExport(){
+  if (state.exporting || !state.audioBuffer || !state.images.length) return;
+  exportFormat = pickMime();
+  if (!exportFormat){
+    alert("このブラウザは動画書き出しに対応していません。PCのChromeをお試しください。");
+    return;
+  }
+  player.ensure();
+  if (player.ctx.state === "suspended") await player.ctx.resume();
+  player.pause();
+
+  // 解像度を反映
+  const [w,h] = ui.exportRes.value.split("x").map(Number);
+  canvas.width = w; canvas.height = h;
+  patternCache.clear();
+  petals = [];
+
+  state.exporting = true;
+  document.body.classList.add("exporting");
+  ui.exportBtn.disabled = true;
+  ui.cancelBtn.style.display = "block";
+  ui.exportWarn.style.display = "block";
+  ui.progressWrap.style.display = "block";
+  ui.downloadArea.style.display = "none";
+  ui.progressInner.style.width = "0%";
+
+  mediaDest = player.ctx.createMediaStreamDestination();
+  player.masterGain.connect(mediaDest);
+  const stream = canvas.captureStream(30);
+  mediaDest.stream.getAudioTracks().forEach(tr => stream.addTrack(tr));
+
+  recordedChunks = [];
+  recorder = new MediaRecorder(stream, {
+    mimeType: exportFormat.mime,
+    videoBitsPerSecond: canvas.width >= 1920 ? 12_000_000 : 8_000_000,
+  });
+  recorder.ondataavailable = e => { if (e.data.size) recordedChunks.push(e.data); };
+  recorder.start(500);
+  await player.play(0); // onended → finishExport()
+}
+function finishExport(){
+  if (!recorder) return;
+  recorder.onstop = () => {
+    const blob = new Blob(recordedChunks, { type: exportFormat.mime.split(";")[0] });
+    const d = new Date();
+    const stamp = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
+    ui.downloadLink.href = URL.createObjectURL(blob);
+    ui.downloadLink.download = `equalizer-mv_${stamp}.${exportFormat.ext}`;
+    ui.formatInfo.textContent = `形式: ${exportFormat.label} / サイズ: ${(blob.size/1024/1024).toFixed(1)} MB`;
+    ui.downloadArea.style.display = "block";
+    ui.progressText.textContent = "✅ 書き出し完了!";
+    ui.progressInner.style.width = "100%";
+    cleanupExport();
+  };
+  recorder.stop();
+}
+function cancelExport(){
+  if (!state.exporting) return;
+  player.pause();
+  if (recorder && recorder.state !== "inactive"){
+    recorder.onstop = null;
+    recorder.stop();
+  }
+  ui.progressWrap.style.display = "none";
+  cleanupExport();
+}
+function cleanupExport(){
+  state.exporting = false;
+  document.body.classList.remove("exporting");
+  ui.cancelBtn.style.display = "none";
+  ui.exportWarn.style.display = "none";
+  if (mediaDest){
+    try{ player.masterGain.disconnect(mediaDest); }catch(e){}
+    mediaDest = null;
+  }
+  recorder = null;
+  refreshAppState();
+}
+
+/* ---------- イベント接続 ---------- */
+function setupDropzone(zone, input, handler){
+  zone.onclick = () => input.click();
+  input.onchange = () => { handler(input.files); input.value = ""; };
+  zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("dragover"); });
+  zone.addEventListener("dragleave", () => zone.classList.remove("dragover"));
+  zone.addEventListener("drop", e => {
+    e.preventDefault();
+    zone.classList.remove("dragover");
+    handler(e.dataTransfer.files);
+  });
+}
+setupDropzone(ui.imgDrop, ui.imgInput, files => addImageFiles([...files]));
+setupDropzone(ui.audioDrop, ui.audioInput, files => { if (files[0]) loadAudioFile(files[0]); });
+
+ui.playBtn.onclick = () => {
+  if (state.exporting) return;
+  if (player.playing) player.pause();
+  else {
+    const t = player.pausedAt >= player.duration - 0.05 ? 0 : player.pausedAt;
+    player.play(t);
+  }
+};
+let seekDragging = false;
+ui.seekBar.addEventListener("pointerdown", () => seekDragging = true);
+ui.seekBar.addEventListener("pointerup", () => seekDragging = false);
+ui.seekBar.addEventListener("input", () => {
+  if (state.exporting) return;
+  player.seek(ui.seekBar.value / 1000 * player.duration);
+  ui.timeLabel.textContent = `${fmtTime(player.time)} / ${fmtTime(player.duration)}`;
+});
+
+// プリセット選択UI
+PRESETS.forEach(p => {
+  const btn = document.createElement("button");
+  btn.className = "presetBtn" + (p.id === state.preset ? " active" : "");
+  btn.textContent = p.name;
+  btn.onclick = () => {
+    state.preset = p.id;
+    document.querySelectorAll(".presetBtn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    ui.pawColorField.style.display = p.id === "paw" ? "block" : "none";
+    ui.petalField.style.display = p.id === "sakura" ? "flex" : "none";
+    petals = [];
+  };
+  ui.presetGrid.appendChild(btn);
+});
+
+ui.palette.onchange = () => {
+  ui.customColorField.style.display = ui.palette.value === "custom" ? "block" : "none";
+};
+ui.slideMode.onchange = () => {
+  ui.manualFields.style.display = ui.slideMode.value === "manual" ? "grid" : "none";
+};
+ui.barCount.oninput = () => $("barCountVal").textContent = ui.barCount.value;
+ui.eqHeight.oninput = () => $("eqHeightVal").textContent = ui.eqHeight.value + "%";
+ui.eqMargin.oninput = () => $("eqMarginVal").textContent = ui.eqMargin.value + "%";
+ui.exportRes.onchange = () => {
+  if (state.exporting) return;
+  const [w,h] = ui.exportRes.value.split("x").map(Number);
+  canvas.width = w; canvas.height = h;
+  patternCache.clear();
+};
+ui.exportBtn.onclick = startExport;
+ui.cancelBtn.onclick = cancelExport;
+
+window.addEventListener("beforeunload", e => {
+  if (state.exporting){ e.preventDefault(); e.returnValue = ""; }
+});
+
+// 対応形式バッジ
+{
+  const f = pickMime();
+  ui.formatBadge.textContent = f ? f.label : "非対応ブラウザ";
+  $("step4").classList.toggle("done", false);
+}
+
+refreshAppState();
+render();
+</script>
+</body>
+</html>

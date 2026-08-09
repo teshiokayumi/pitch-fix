@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pitch-fix — ガイドに合わせて歌のピッチを直す</title>
+<style>
+  :root{
+    --bg:#f7f6fb; --card:#ffffff; --ink:#26232e; --muted:#6f6a7d;
+    --line:#e5e1ee; --accent:#6c5ce7; --accent-soft:#efecfd;
+    --ok:#1a9d6a; --warn:#c8791b; --err:#c0392b;
+    --orig:#e8804a; --fixed:#4a7ce8; --target:#b8b2c9;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",system-ui,sans-serif;
+    line-height:1.75; font-size:16px;
+  }
+  .wrap{max-width:860px; margin:0 auto; padding:32px 20px 96px}
+  header h1{font-size:26px; margin:0 0 6px}
+  header p{margin:0; color:var(--muted); font-size:15px}
+
+  .note{
+    margin:24px 0; padding:14px 18px; border-radius:var(--radius);
+    background:#fff8e8; border:1px solid #f0dfb8; font-size:15px;
+  }
+  .note strong{color:var(--warn)}
+
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:22px 24px; margin:18px 0;
+  }
+  .card[aria-disabled="true"]{opacity:.45; pointer-events:none}
+  .card h2{
+    font-size:17px; margin:0 0 4px; display:flex; align-items:center; gap:10px;
+  }
+  .step{
+    width:26px; height:26px; flex:0 0 26px; border-radius:50%;
+    background:var(--accent-soft); color:var(--accent);
+    display:grid; place-items:center; font-size:14px; font-weight:700;
+  }
+  .card h2.done .step{background:var(--ok); color:#fff}
+  .hint{color:var(--muted); font-size:14px; margin:0 0 16px 36px}
+
+  .row{display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin:12px 0}
+  button{
+    font:inherit; font-weight:600; border:none; border-radius:10px;
+    padding:11px 20px; cursor:pointer; background:var(--accent); color:#fff;
+    transition:filter .15s;
+  }
+  button:hover:not(:disabled){filter:brightness(1.08)}
+  button:disabled{opacity:.4; cursor:not-allowed}
+  button.ghost{background:var(--accent-soft); color:var(--accent)}
+  button.danger{background:var(--err)}
+  button.big{padding:15px 32px; font-size:17px}
+
+  label.file{
+    display:inline-block; background:var(--accent-soft); color:var(--accent);
+    padding:11px 20px; border-radius:10px; cursor:pointer; font-weight:600;
+  }
+  label.file input{display:none}
+
+  .status{font-size:14px; color:var(--muted)}
+  .status.ok{color:var(--ok)}
+  .status.err{color:var(--err)}
+
+  .field{margin:18px 0}
+  .field-head{display:flex; justify-content:space-between; align-items:baseline; gap:12px}
+  .field-head b{font-weight:600; font-size:15px}
+  .field-head span{font-variant-numeric:tabular-nums; color:var(--accent); font-weight:700}
+  .field small{display:block; color:var(--muted); font-size:13px; line-height:1.6}
+  input[type=range]{width:100%; accent-color:var(--accent); margin:6px 0 2px}
+  input[type=number]{
+    font:inherit; width:92px; padding:7px 10px;
+    border:1px solid var(--line); border-radius:8px;
+  }
+  select{font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px}
+
+  details{margin-top:12px; border-top:1px solid var(--line); padding-top:12px}
+  summary{cursor:pointer; color:var(--muted); font-size:14px}
+
+  .bar{height:9px; background:var(--line); border-radius:99px; overflow:hidden; margin:10px 0 6px}
+  .bar > i{display:block; height:100%; width:0; background:var(--accent); transition:width .3s}
+
+  .countdown{font-size:64px; font-weight:800; color:var(--accent); text-align:center; margin:12px 0}
+  .rec-time{font-variant-numeric:tabular-nums; font-size:22px; font-weight:700}
+
+  audio{width:100%; margin-top:8px}
+  canvas{width:100%; height:230px; display:block; border-radius:10px; background:#fbfaff;
+         border:1px solid var(--line); margin-top:10px}
+  .legend{display:flex; gap:18px; font-size:13px; color:var(--muted); margin-top:8px; flex-wrap:wrap}
+  .legend i{display:inline-block; width:16px; height:3px; border-radius:2px; vertical-align:middle; margin-right:6px}
+
+  table{width:100%; border-collapse:collapse; font-size:14px; margin-top:6px}
+  td{padding:7px 0; border-bottom:1px solid var(--line)}
+  td:last-child{text-align:right; font-variant-numeric:tabular-nums; font-weight:600}
+  .verdict{margin:14px 0 0; padding:12px 16px; border-radius:10px; background:var(--accent-soft); font-size:15px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>pitch-fix</h1>
+  <p>ガイドボーカルに合わせて、自分の歌の音程だけを直します。リズム・声質・ビブラートはそのままです。</p>
+</header>
+
+<div class="note">
+  <strong>ヘッドホンを着けてください。</strong>
+  スピーカーで再生するとガイドの音がマイクに混ざり、ピッチの解析が狂います。<br>
+  録音・補正はすべてこの PC の中だけで行われ、どこにも送信されません。
+</div>
+
+<!-- ① ガイド音源 -->
+<section class="card" id="card1">
+  <h2><span class="step">1</span>ガイド音源を読み込む</h2>
+  <p class="hint">目標にしたい歌が入った音声ファイル。<b>伴奏なし・ボーカルのみ</b>の音源を使ってください(伴奏が入っていると音程を取り違えます)。</p>
+  <div class="row">
+    <label class="file">ファイルを選ぶ<input type="file" id="guideFile" accept="audio/*"></label>
+    <span class="status" id="guideStatus">まだ読み込んでいません</span>
+  </div>
+  <audio id="guidePreview" controls hidden></audio>
+</section>
+
+<!-- ② 録音 -->
+<section class="card" id="card2" aria-disabled="true">
+  <h2><span class="step">2</span>ガイドを聴きながら歌う</h2>
+  <p class="hint">3 秒のカウントのあとガイドが流れます。合わせて歌ってください。何度でも録り直せます。</p>
+
+  <div class="row">
+    <label>開始位置
+      <input type="number" id="guideStart" value="0" min="0" step="1"> 秒
+    </label>
+    <label style="flex:1; min-width:200px">ガイドの音量
+      <input type="range" id="guideVol" min="0" max="100" value="70">
+    </label>
+  </div>
+
+  <div class="countdown" id="countdown" hidden></div>
+
+  <div class="row">
+    <button class="big" id="recBtn">● 録音を始める</button>
+    <button class="big danger" id="stopBtn" hidden>■ 停止</button>
+    <span class="rec-time" id="recTime" hidden>0:00</span>
+  </div>
+  <div class="status" id="recStatus"></div>
+  <audio id="takePreview" controls hidden></audio>
+
+  <details>
+    <summary>録音せず、すでにあるファイルを使う</summary>
+    <div class="row" style="margin-top:12px">
+      <label class="file">歌のファイルを選ぶ<input type="file" id="takeFile" accept="audio/*"></label>
+      <span class="status" id="takeFileStatus"></span>
+    </div>
+  </details>
+</section>
+
+<!-- ③ 設定 -->
+<section class="card" id="card3" aria-disabled="true">
+  <h2><span class="step">3</span>直し方を決める</h2>
+  <p class="hint">まずはこのままで一度試してみて、結果を聴きながら調整するのがおすすめです。</p>
+
+  <div class="field">
+    <div class="field-head"><b>補正の強さ</b><span id="strengthVal">85%</span></div>
+    <input type="range" id="strength" min="0" max="100" value="85">
+    <small>ガイドの音程にどれだけ寄せるか。100% は完全に一致しますが機械的になります。70〜90% が自然です。</small>
+  </div>
+
+  <div class="field">
+    <div class="field-head"><b>自分の揺れを残す</b><span id="vibVal">100%</span></div>
+    <input type="range" id="vibrato" min="0" max="100" value="100">
+    <small>ビブラートやしゃくりなど、速い揺れを残す度合い。100% なら自分の歌い方がそのまま残ります。意図しない震えを抑えたいときは下げてください。</small>
+  </div>
+
+  <div class="field">
+    <div class="field-head"><b>直しの追従の速さ</b><span id="retuneVal">80 ms</span></div>
+    <input type="range" id="retune" min="20" max="300" value="80" step="10">
+    <small>短いほど音の変わり目でカチッと決まり、長いほど人間らしくぬるっと動きます。</small>
+  </div>
+
+  <details>
+    <summary>細かい設定</summary>
+    <div class="field">
+      <div class="field-head"><b>動かす上限</b><span id="shiftVal">7 半音</span></div>
+      <input type="range" id="maxShift" min="2" max="14" value="7">
+      <small>これ以上は動かしません。解析ミスで音が壊れるのを防ぐ安全装置です。</small>
+    </div>
+    <div class="row">
+      <label>ピッチ解析
+        <select id="f0Method">
+          <option value="dio">標準(速い)</option>
+          <option value="harvest">高精度(数倍遅い)</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="useDtw" checked> 歌い出しのズレも細かく合わせる</label>
+    </div>
+  </details>
+
+  <div class="row" style="margin-top:20px">
+    <button class="big" id="runBtn">この設定で補正する</button>
+  </div>
+  <div class="bar" id="progBar" hidden><i></i></div>
+  <div class="status" id="runStatus"></div>
+</section>
+
+<!-- ④ 結果 -->
+<section class="card" id="card4" hidden>
+  <h2><span class="step">4</span>結果を聴いて確かめる</h2>
+  <p class="hint">補正前と聴き比べてください。物足りなければ ③ に戻って設定を変え、もう一度補正できます(録り直しは不要です)。</p>
+
+  <div class="verdict" id="verdict"></div>
+
+  <div class="field">
+    <b>補正前(そのままの録音)</b>
+    <audio id="beforeAudio" controls></audio>
+  </div>
+  <div class="field">
+    <b>補正後</b>
+    <audio id="afterAudio" controls></audio>
+  </div>
+
+  <div class="row">
+    <button id="dlBtn">WAV をダウンロード</button>
+    <button class="ghost" id="againBtn">設定を変えてもう一度</button>
+  </div>
+
+  <canvas id="graph"></canvas>
+  <div class="legend">
+    <span><i style="background:var(--target)"></i>ガイド(目標)</span>
+    <span><i style="background:var(--orig)"></i>補正前</span>
+    <span><i style="background:var(--fixed)"></i>補正後</span>
+  </div>
+
+  <details>
+    <summary>詳しい数値</summary>
+    <table id="statTable"></table>
+  </details>
+</section>
+
+</div>
+
+<script>
+"use strict";
+
+const RATE = 44100;
+const $ = (id) => document.getElementById(id);
+
+let audioCtx = null;
+let guideBuffer = null;     // AudioBuffer(再生用)
+let guideMono = null;       // Float32Array(送信用)
+let takeMono = null;        // Float32Array(送信用)
+let lastJobId = null;
+
+function ctx() {
+  if (!audioCtx || audioCtx.state === "closed") {
+    audioCtx = new AudioContext({ sampleRate: RATE });
+  }
+  return audioCtx;
+}
+
+function setEnabled(card, on) {
+  card.setAttribute("aria-disabled", on ? "false" : "true");
+}
+
+function fmtTime(sec) {
+  const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/* ---------- 音声の変換 ---------- */
+
+function downmix(buffer) {
+  const n = buffer.length;
+  const out = new Float32Array(n);
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const ch = buffer.getChannelData(c);
+    for (let i = 0; i < n; i++) out[i] += ch[i];
+  }
+  if (buffer.numberOfChannels > 1) {
+    for (let i = 0; i < n; i++) out[i] /= buffer.numberOfChannels;
+  }
+  return out;
+}
+
+function encodeWav(samples, sampleRate) {
+  // 16bit PCM モノラル。ローカル送信なのでこれで十分。
+  const buf = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buf);
+  const str = (off, s) => { for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i)); };
+  str(0, "RIFF"); view.setUint32(4, 36 + samples.length * 2, true); str(8, "WAVE");
+  str(12, "fmt "); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true); view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+  str(36, "data"); view.setUint32(40, samples.length * 2, true);
+  let o = 44;
+  for (let i = 0; i < samples.length; i++, o += 2) {
+    const v = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(o, v < 0 ? v * 0x8000 : v * 0x7fff, true);
+  }
+  return new Blob([buf], { type: "audio/wav" });
+}
+
+async function decodeFile(file) {
+  const bytes = await file.arrayBuffer();
+  const ac = ctx();
+  await ac.resume();
+  return await ac.decodeAudioData(bytes);
+}
+
+/* ---------- ① ガイド ---------- */
+
+$("guideFile").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const status = $("guideStatus");
+  status.className = "status";
+  status.textContent = "読み込み中…";
+  try {
+    guideBuffer = await decodeFile(file);
+    guideMono = downmix(guideBuffer);
+    status.className = "status ok";
+    status.textContent = `${file.name} — ${fmtTime(guideBuffer.duration)}`;
+    const prev = $("guidePreview");
+    prev.src = URL.createObjectURL(file);
+    prev.hidden = false;
+    $("guideStart").max = Math.floor(guideBuffer.duration);
+    setEnabled($("card2"), true);
+    $("card1").querySelector("h2").classList.add("done");
+  } catch (err) {
+    status.className = "status err";
+    status.textContent = "この形式は読み込めませんでした: " + err.message;
+  }
+});
+
+/* ---------- ② 録音 ---------- */
+
+const RECORDER_CODE = `
+class Rec extends AudioWorkletProcessor {
+  constructor(){
+    super();
+    this.size = 8192;
+    this.buf = new Float32Array(this.size);
+    this.n = 0;
+    this.started = false;
+    this.port.onmessage = () => {           // flush 要求
+      if (this.n > 0) this.port.postMessage({ data: this.buf.slice(0, this.n) });
+      this.port.postMessage({ done: true });
+    };
+  }
+  process(inputs){
+    const ch = inputs[0] && inputs[0][0];
+    if (!ch) return true;
+    if (!this.started){
+      // currentFrame は AudioContext のサンプル時計。ガイド開始位置との差分を取るのに使う。
+      this.port.postMessage({ firstFrame: currentFrame });
+      this.started = true;
+    }
+    for (let i = 0; i < ch.length; i++){
+      this.buf[this.n++] = ch[i];
+      if (this.n === this.size){
+        this.port.postMessage({ data: this.buf });
+        this.buf = new Float32Array(this.size);
+        this.n = 0;
+      }
+    }
+    return true;
+  }
+}
+registerProcessor('rec', Rec);
+`;
+
+let recState = null;
+
+async function startRecording() {
+  const ac = ctx();
+  await ac.resume();
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        // これらが有効だと声が加工されてピッチ解析が狂うので必ず切る
+        echoCancellation: false, noiseSuppression: false, autoGainControl: false,
+        channelCount: 1,
+      },
+    });
+  } catch (err) {
+    $("recStatus").className = "status err";
+    $("recStatus").textContent = "マイクを使えませんでした: " + err.message;
+    return;
+  }
+
+  const url = URL.createObjectURL(new Blob([RECORDER_CODE], { type: "application/javascript" }));
+  await ac.audioWorklet.addModule(url);
+  URL.revokeObjectURL(url);
+
+  const source = ac.createMediaStreamSource(stream);
+  const rec = new AudioWorkletNode(ac, "rec", { numberOfOutputs: 1, outputChannelCount: [1] });
+  const sink = ac.createGain();
+  sink.gain.value = 0;                 // 出力はしないが、繋いでおかないと処理が止まる
+  source.connect(rec).connect(sink).connect(ac.destination);
+
+  const chunks = [];
+  let firstFrame = null;
+  let onDone = null;
+  rec.port.onmessage = (e) => {
+    if (e.data.firstFrame !== undefined) firstFrame = e.data.firstFrame;
+    else if (e.data.data) chunks.push(e.data.data);
+    else if (e.data.done && onDone) onDone();
+  };
+
+  const guideStart = Math.max(0, Math.min(guideBuffer.duration - 0.5, Number($("guideStart").value) || 0));
+  const countIn = 3;
+  const startTime = ac.currentTime + countIn;
+
+  // カウントの合図(ヘッドホンから鳴る。ガイド開始前なので録音からは切り落とされる)
+  for (let i = 0; i < countIn; i++) {
+    const osc = ac.createOscillator(), g = ac.createGain();
+    osc.frequency.value = i === countIn - 1 ? 1320 : 880;
+    g.gain.setValueAtTime(0.0001, startTime - countIn + i);
+    g.gain.exponentialRampToValueAtTime(0.25, startTime - countIn + i + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, startTime - countIn + i + 0.12);
+    osc.connect(g).connect(ac.destination);
+    osc.start(startTime - countIn + i);
+    osc.stop(startTime - countIn + i + 0.15);
+  }
+
+  const gain = ac.createGain();
+  gain.gain.value = Number($("guideVol").value) / 100;
+  const player = ac.createBufferSource();
+  player.buffer = guideBuffer;
+  player.connect(gain).connect(ac.destination);
+  player.start(startTime, guideStart);
+
+  recState = { ac, stream, source, rec, sink, gain, player, chunks, startTime, guideStart,
+               get firstFrame() { return firstFrame; }, setDone(fn) { onDone = fn; } };
+
+  $("recBtn").hidden = true;
+  $("stopBtn").hidden = false;
+  $("recTime").hidden = false;
+  $("recStatus").className = "status";
+  $("recStatus").textContent = "";
+  $("takePreview").hidden = true;
+
+  // カウントダウン表示 → 経過時間表示
+  const cd = $("countdown");
+  cd.hidden = false;
+  let left = countIn;
+  cd.textContent = left;
+  const tick = setInterval(() => {
+    const remain = startTime - ac.currentTime;
+    if (remain > 0) { cd.textContent = Math.ceil(remain); return; }
+    cd.hidden = true;
+    $("recTime").textContent = fmtTime(ac.currentTime - startTime);
+  }, 100);
+  recState.tick = tick;
+
+  player.onended = () => { if (recState) stopRecording(); };
+}
+
+async function stopRecording() {
+  if (!recState) return;
+  const st = recState;
+  recState = null;
+  clearInterval(st.tick);
+  $("countdown").hidden = true;
+
+  try { st.player.onended = null; st.player.stop(); } catch (e) { /* すでに終了 */ }
+
+  await new Promise((resolve) => {
+    st.setDone(resolve);
+    st.rec.port.postMessage({ flush: true });
+    setTimeout(resolve, 800);   // 念のためのタイムアウト
+  });
+
+  st.source.disconnect(); st.rec.disconnect(); st.sink.disconnect(); st.gain.disconnect();
+  st.stream.getTracks().forEach((t) => t.stop());
+
+  $("recBtn").hidden = false;
+  $("stopBtn").hidden = true;
+  $("recTime").hidden = true;
+
+  const total = st.chunks.reduce((a, c) => a + c.length, 0);
+  const all = new Float32Array(total);
+  let o = 0;
+  for (const c of st.chunks) { all.set(c, o); o += c.length; }
+
+  // ガイドが鳴り始めた瞬間より前を切り落とす → 録音の 0 秒 = ガイドの guideStart 秒
+  const startFrame = Math.round(st.startTime * st.ac.sampleRate);
+  const trim = Math.max(0, Math.min(all.length, startFrame - (st.firstFrame ?? startFrame)));
+  takeMono = all.subarray(trim);
+
+  const status = $("recStatus");
+  const seconds = takeMono.length / RATE;
+  if (seconds < 1) {
+    status.className = "status err";
+    status.textContent = "録音が短すぎます。もう一度お試しください。";
+    takeMono = null;
+    return;
+  }
+  let peak = 0;
+  for (let i = 0; i < takeMono.length; i += 16) peak = Math.max(peak, Math.abs(takeMono[i]));
+
+  status.className = peak < 0.02 ? "status err" : "status ok";
+  status.textContent = peak < 0.02
+    ? `録音できましたが音がとても小さいです(${fmtTime(seconds)})。マイクの入力音量を上げて録り直してください。`
+    : `録音できました(${fmtTime(seconds)})。`;
+
+  const blob = encodeWav(takeMono, RATE);
+  const prev = $("takePreview");
+  prev.src = URL.createObjectURL(blob);
+  prev.hidden = false;
+
+  window.__takeOffsetHint = -st.guideStart;
+  setEnabled($("card3"), true);
+  $("card2").querySelector("h2").classList.add("done");
+}
+
+$("recBtn").addEventListener("click", startRecording);
+$("stopBtn").addEventListener("click", stopRecording);
+$("guideVol").addEventListener("input", (e) => {
+  if (recState) recState.gain.gain.value = Number(e.target.value) / 100;
+});
+
+$("takeFile").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const status = $("takeFileStatus");
+  status.className = "status";
+  status.textContent = "読み込み中…";
+  try {
+    const buf = await decodeFile(file);
+    takeMono = downmix(buf);
+    window.__takeOffsetHint = 0;
+    status.className = "status ok";
+    status.textContent = `${file.name} — ${fmtTime(buf.duration)}`;
+    const prev = $("takePreview");
+    prev.src = URL.createObjectURL(file);
+    prev.hidden = false;
+    setEnabled($("card3"), true);
+    $("card2").querySelector("h2").classList.add("done");
+  } catch (err) {
+    status.className = "status err";
+    status.textContent = "読み込めませんでした: " + err.message;
+  }
+});
+
+/* ---------- ③ 設定 ---------- */
+
+const bind = (id, out, fmt) => {
+  const el = $(id);
+  const show = () => { $(out).textContent = fmt(el.value); };
+  el.addEventListener("input", show);
+  show();
+};
+bind("strength", "strengthVal", (v) => v + "%");
+bind("vibrato", "vibVal", (v) => v + "%");
+bind("retune", "retuneVal", (v) => v + " ms");
+bind("maxShift", "shiftVal", (v) => v + " 半音");
+
+function collectParams() {
+  return {
+    strength: Number($("strength").value) / 100,
+    vibrato_keep: Number($("vibrato").value) / 100,
+    retune_ms: Number($("retune").value),
+    max_shift: Number($("maxShift").value),
+    f0_method: $("f0Method").value,
+    use_dtw: $("useDtw").checked,
+    offset_hint: window.__takeOffsetHint || 0,
+  };
+}
+
+async function runCorrection() {
+  if (!guideMono || !takeMono) return;
+
+  const btn = $("runBtn");
+  const status = $("runStatus");
+  const bar = $("progBar");
+  btn.disabled = true;
+  bar.hidden = false;
+  bar.querySelector("i").style.width = "0%";
+  status.className = "status";
+  status.textContent = "音声を送信しています…";
+
+  const form = new FormData();
+  form.append("guide", encodeWav(guideMono, RATE), "guide.wav");
+  form.append("take", encodeWav(takeMono, RATE), "take.wav");
+  form.append("params", JSON.stringify(collectParams()));
+
+  let jobId;
+  try {
+    const res = await fetch("/api/jobs", { method: "POST", body: form });
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    jobId = (await res.json()).id;
+  } catch (err) {
+    btn.disabled = false; bar.hidden = true;
+    status.className = "status err";
+    status.textContent = "送信に失敗しました: " + err.message;
+    return;
+  }
+
+  // 進捗をポーリング
+  let failures = 0;
+  while (true) {
+    await new Promise((r) => setTimeout(r, 600));
+    let job;
+    try {
+      job = await (await fetch("/api/jobs/" + jobId)).json();
+      failures = 0;
+    } catch (err) {
+      if (++failures < 15) continue;   // 一時的な失敗は見逃すが、諦めどきは作る
+      btn.disabled = false; bar.hidden = true;
+      status.className = "status err";
+      status.textContent = "サーバーに繋がらなくなりました。python server.py が動いているか確認してください。";
+      return;
+    }
+
+    bar.querySelector("i").style.width = Math.round(job.progress * 100) + "%";
+    status.textContent = job.message;
+
+    if (job.status === "error") {
+      btn.disabled = false; bar.hidden = true;
+      status.className = "status err";
+      status.textContent = "エラー: " + job.error;
+      return;
+    }
+    if (job.status === "done") {
+      btn.disabled = false;
+      status.className = "status ok";
+      status.textContent = "補正が完了しました。";
+      lastJobId = jobId;
+      await showResult(jobId, job.summary);
+      return;
+    }
+  }
+}
+$("runBtn").addEventListener("click", runCorrection);
+
+/* ---------- ④ 結果 ---------- */
+
+async function showResult(jobId, summary) {
+  $("card4").hidden = false;
+  $("card3").querySelector("h2").classList.add("done");
+
+  $("beforeAudio").src = URL.createObjectURL(encodeWav(takeMono, RATE));
+  $("afterAudio").src = `/api/jobs/${jobId}/audio`;
+
+  const before = summary.median_error, after = summary.residual_median;
+  const pct = before > 0.01 ? Math.round((1 - after / before) * 100) : 0;
+  let text = `ガイドとのずれは <b>中央値 ${before.toFixed(2)} 半音 → ${after.toFixed(2)} 半音</b>`;
+  text += pct > 0 ? `(約 ${pct}% 縮まりました)。` : "。";
+  if (summary.coverage < 0.7) {
+    text += `<br>⚠ ガイドの音程を参照できたのは ${Math.round(summary.coverage * 100)}% でした。`
+          + "ガイドに伴奏が入っていないか、歌い出しがずれていないか確認してください。";
+  }
+  if (summary.clamp_ratio > 0.1) {
+    text += `<br>⚠ ${Math.round(summary.clamp_ratio * 100)}% のフレームが上限で頭打ちになりました。`
+          + "オクターブ違いで歌っている場合は「動かす上限」を上げてみてください。";
+  }
+  $("verdict").innerHTML = text;
+
+  const labels = {
+    median_error: "補正前のずれ(中央値・半音)",
+    p90_error: "補正前のずれ(90%・半音)",
+    residual_median: "補正後の残り(中央値・半音)",
+    coverage: "ガイドを参照できた割合",
+    clamp_ratio: "上限で頭打ちになった割合",
+    offset: "検出した時間のずれ(秒)",
+    offset_confidence: "時間合わせの確からしさ",
+    duration: "長さ(秒)",
+  };
+  $("statTable").innerHTML = Object.entries(labels).map(([k, label]) => {
+    let v = summary[k];
+    if (k === "coverage" || k === "clamp_ratio") v = Math.round(v * 100) + "%";
+    return `<tr><td>${label}</td><td>${v}</td></tr>`;
+  }).join("");
+
+  try {
+    const curves = await (await fetch(`/api/jobs/${jobId}/curves`)).json();
+    drawGraph(curves);
+  } catch (err) { /* グラフは無くても支障ない */ }
+
+  $("card4").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function drawGraph(curves) {
+  const cv = $("graph");
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, h = cv.clientHeight;
+  cv.width = w * dpr; cv.height = h * dpr;
+  const g = cv.getContext("2d");
+  g.scale(dpr, dpr);
+  g.clearRect(0, 0, w, h);
+
+  const series = [curves.target, curves.original, curves.corrected];
+  const all = series.flat().filter((v) => v !== null);
+  if (!all.length) return;
+  let lo = Math.floor(Math.min(...all)) - 1, hi = Math.ceil(Math.max(...all)) + 1;
+  if (hi - lo < 12) { const c = (hi + lo) / 2; lo = c - 6; hi = c + 6; }
+
+  const pad = { l: 34, r: 8, t: 10, b: 20 };
+  const px = (i, n) => pad.l + (w - pad.l - pad.r) * (i / Math.max(1, n - 1));
+  const py = (m) => pad.t + (h - pad.t - pad.b) * (1 - (m - lo) / (hi - lo));
+
+  // オクターブごとの目盛り(C の位置)
+  g.strokeStyle = "#eeebf6"; g.fillStyle = "#a9a3b8";
+  g.font = "11px sans-serif"; g.textAlign = "right"; g.lineWidth = 1;
+  for (let m = Math.ceil(lo / 12) * 12; m <= hi; m += 12) {
+    const y = py(m);
+    g.beginPath(); g.moveTo(pad.l, y); g.lineTo(w - pad.r, y); g.stroke();
+    g.fillText("C" + (Math.round(m / 12) - 1), pad.l - 6, y + 4);
+  }
+
+  const styles = [
+    { color: getCSS("--target"), width: 4 },
+    { color: getCSS("--orig"), width: 1.8 },
+    { color: getCSS("--fixed"), width: 1.8 },
+  ];
+  series.forEach((data, si) => {
+    g.strokeStyle = styles[si].color;
+    g.lineWidth = styles[si].width;
+    g.lineJoin = "round";
+    g.beginPath();
+    let drawing = false;
+    data.forEach((v, i) => {
+      if (v === null) { drawing = false; return; }   // 無声は線を切る
+      const x = px(i, data.length), y = py(v);
+      if (!drawing) { g.moveTo(x, y); drawing = true; } else { g.lineTo(x, y); }
+    });
+    g.stroke();
+  });
+
+  g.fillStyle = "#a9a3b8"; g.textAlign = "left";
+  g.fillText("0:00", pad.l, h - 6);
+  g.textAlign = "right";
+  g.fillText(fmtTime(curves.duration), w - pad.r, h - 6);
+}
+
+function getCSS(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+$("dlBtn").addEventListener("click", () => {
+  if (!lastJobId) return;
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  const name = `pitchfix_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.wav`;
+  const a = document.createElement("a");
+  a.href = `/api/jobs/${lastJobId}/audio`;
+  a.download = name;
+  a.click();
+});
+
+$("againBtn").addEventListener("click", () => {
+  $("card3").scrollIntoView({ behavior: "smooth", block: "start" });
+});
+</script>
+</body>
+</html>
